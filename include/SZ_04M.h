@@ -1,3 +1,13 @@
+// -*- coding: utf-8 -*-
+/**
+ * 
+ * @file        SZ_04M.h
+ * @brief       Controle do sensor Keyence SZ_04M para Mbed
+ * 
+ * Este header oferece suporte para controle e acionamento do Sensor Keyence
+ * SZ_04M no modo "NOT USED"
+ */
+
 #include <mbed.h>
 
 /* 
@@ -13,30 +23,119 @@
 #define SZON    0
 #define SZOFF   1
 
+/**
+ * @class   SZ_04M
+ * @brief   Classe para controle e acionamento do Keyence SZ_04M.
+ * O circuito de acionamento deve ser projetado conforme o cabo selecionado
+ * (NPN) ou (PNP). Se necessário, mudar os valores de SZON e SZOFF.
+ *  Os valores de AUX foram configurados da seguinte forma para o 
+ * funcionamento correto desta classe:
+ *          AUX     |   Função
+ *          ------------------
+ *          AUX 1   |   Padrão
+ *          AUX 2   |   Padrão
+ *          AUX 3   |   Erro
+ *          AUX 4   |   Alerta
+ *          AUX 5   |   Detecção na zona de proteção
+ *          AUX 6   |   Pronto p.reinic. de intertravamento
+ */
 class SZ_04M{
     public:
-        //First 8 Pins are INPUTS, the five following pins are OUTPUTS
-        //The order is the same as shown on page 4.6
+        /**
+         * @brief   Cria um objeto para controlar um SZ_04M.
+         * @param   _ossd1  Corresponde à função/fio OSSD1
+         * @param   _ossd2  Corresponde à função/fio OSSD2
+         * @param   _aux1   Corresponde à saída AUX 1
+         * @param   _aux2   Corresponde à saída AUX 2
+         * @param   _aux3   Corresponde à saída AUX 3
+         * @param   _aux4   Corresponde à saída AUX 4
+         * @param   _aux5   Corresponde à saída AUX 5
+         * @param   _aux6   Corresponde à saída AUX 6
+         * @param   _reinit Corresponde à Entrada 1
+         * @param   _bank_1 Corresponde à Entrada 3
+         * @param   _bank_2 Corresponde à Entrada 4
+         * @param   _bank_3 Corresponde à Entrada 5
+         * @param   _bank_4 Corresponde à Entrada 6
+         */
         SZ_04M(PinName _ossd1, PinName _ossd2, PinName _aux1, PinName _aux2,
         PinName _aux3, PinName _aux4, PinName _aux5, PinName _aux6,
-        PinName _reinit, PinName _bank_1, PinName _bank_2,
-        PinName _bank_3, PinName _bank_4 );
-
+        PinName _reinit, PinName _bank_1, PinName _bank_2, PinName _bank_3,
+        PinName _bank_4 );
+        /**
+         * Destrutor padrão da classe.
+         */
         ~SZ_04M();
 
+        /**
+         * @brief Incializa a classe e variáveis responsáveis pelo funcionamento
+         * Deve ser chamado antes de qualwuer outro método
+         */
         void init();
-        //Set all outputs LSB: entry 1      MSB: Entry 6
+        /**
+         * @brief   Atualiza todas | AUX6 | AUX5 | AUX4 | AUX3 | AUX2 | AUX1 | OSSD1 | OSSD2 |as saídas, uso não recomendado. Apenas para teste.
+         * @param   val     Valor em hexadecial MSB: banco 4, LSB: reinit
+         */
         void setOutputs( unsigned char val );
+        /**
+         * @brief   Obtem todos os estados dos valores de entrada (AUX's e OSSD's)
+         */
         unsigned char readInputs();
+        /**
+         * @brief   Realiza procedimento para destravar o Interlock. Só possui efeito
+         * quando o SZ_04M indica que esta 'ready to unlock' (isReadyToUnlock() precisa
+         * ser true)
+         * @return  |Valor (hex) representando o valor lido. Estrura do return:
+         * | AUX6 | AUX5 | AUX4 | AUX3 | AUX2 | AUX1 | OSSD1 | OSSD2 |
+         */
         void releaseInterlock();                //set output to release interlockgit c
+        /**
+         *  @brief Muda para o banco seguinte. Ex. banco 1 para banco 2, banco 3 para banco 4,
+         * banco 4 para banco 1, etc.
+         */
         void nextBank();
+        /**
+         * @brief   Seleciona um banco.
+         * @param bank  Valor entre 1 e 4.
+         */
         void selectBank(unsigned char bank);    //Between 1 ~ 4;
+        /**
+         * @brief   Retorna o último estado do SZ_04M.
+         * @return  Valor dos pulsos lidos pela SZ_04M. Consultar manual para
+         * identificação de cada valor.
+         */
         unsigned char getLastStatus();          //return last sensor status
+        /**
+         * @brief   Indica se há algo na zona de detecção.
+         * @return  true se há algo, false caso contrário.
+         */
         bool isDetecting();                     //TRUE if there is something on protection zone, FALSE otherwise
+        /**
+         * @brief Indica se o SZ_04M está pronto para liberar o intertravamento
+         * (ver método releaseInterlock() ).
+         * @return      true se o interlacko pode ser liberado, false caso contrário.
+         */
         bool isReadyToUnlock();                 //TRUE if is ready, FALSE otherwise
+        /**
+         * @brief   Método para auxiliar na solução de problemas internos
+         * case este não seja de natureza mecânica o intrínseca do SZ.
+         * @return  true se algo voi aplicado, false caso contrário.
+         */
         bool checkInternalError();              //check internal errors and try solution, return TRUE if it achieve a solution, FALSE otherwise
+        /**
+         * @brief      Indica qual banco está ativo
+         * @return      Retorna entre 1 e 4, correspondente ao banco ativo.
+         * Caso multiplos bancos estiverem ativos o primeiro é retornado
+         */
         unsigned char activatedBank();          //check which bank is active 0 if none
+        /**
+         * @brief   Indica se a SZ está com algum erro (Display em vermelho)
+         * @return  true se está em erro, false caso contrário
+         */
         bool isErrorOn();                       //check if SZ_04M is on error
+        /**
+         * @brief   Indica se eo SZ está no modo operacional (Display em verde)
+         * @return  true se está operacional, false caso contrário.
+         */
         bool isOperational();
 
     private:
@@ -49,7 +148,7 @@ class SZ_04M{
         InterruptIn aux1;
         InterruptIn aux2;
         DigitalIn aux3;
-        DigitalIn aux4;
+        DigitalIn aux4;;
         DigitalIn aux5;
         DigitalIn aux6;
 
