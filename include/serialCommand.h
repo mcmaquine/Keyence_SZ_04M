@@ -64,17 +64,18 @@ void selectBank(){
     else pc.printf("Out of Range");
 }
 
-void reset(){
+void resetIntrlock(){
     sensor.releaseInterlock();
     pc.printf("Interlock function called\n");
 }
 
-void changeBank(){
-  sensor.nextBank();
+void activeBank(){
+  pc.printf("Banco ativo: %d", sensor.activatedBank() );
 }
 
 void status(){
-    pc.printf("%x Status: %d IsDetecting %d\n", sensor.readInputs(), sensor.getLastStatus(), sensor.isDetecting() );
+    pc.printf("Inputs: %x Status: %d IsDetecting %d\n", sensor.readInputs(),
+    sensor.getLastStatus(), sensor.isDetecting() );
 }
 
 void isReadyToUnlock(){
@@ -84,8 +85,25 @@ void isReadyToUnlock(){
         pc.printf("NO");    
 }
 
+void onError(){
+    if( sensor.isErrorOn() )
+        pc.printf("YES");
+    else
+        pc.printf("NO");
+}
+
 void readInputs(){
     pc.printf("Inputs %d", sensor.readInputs() );
+}
+
+void isOperationl(){
+    if( sensor.isOperational() )
+        pc.printf("YES\n");
+    else
+    {
+            pc.printf("NO\n");
+    }
+    
 }
 /****************************************
  * CHAMAR NO MAIN ESTA CLASSE
@@ -94,12 +112,14 @@ void initLineCommand(){
     line.addCommand("init", initCmd);
     line.addCommand(HELP, helpCmd);
     line.addCommand(ENTERDEBUG, debugCmd);
-    line.addCommand("nbnk", changeBank);
-    line.addCommand("rls", reset);
+    line.addCommand("abnk", activeBank);
+    line.addCommand("rls", resetIntrlock);
     line.addCommand("stat", status);
     line.addCommand("ulck", isReadyToUnlock);
     line.addCommand("bank", selectBank);
     line.addCommand("read", readInputs );
+    line.addCommand("erro", onError);
+    line.addCommand("run", isOperationl);
     initCmd();
     line.printLine();
     pc.attach(SerialCall);

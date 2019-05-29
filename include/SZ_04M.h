@@ -10,6 +10,9 @@
 #ifndef _SZ_04M_H_
     #define _SZ_04M_H
 
+#define SZON    0
+#define SZOFF   1
+
 class SZ_04M{
     public:
         //First 8 Pins are INPUTS, the five following pins are OUTPUTS
@@ -17,7 +20,7 @@ class SZ_04M{
         SZ_04M(PinName _ossd1, PinName _ossd2, PinName _aux1, PinName _aux2,
         PinName _aux3, PinName _aux4, PinName _aux5, PinName _aux6,
         PinName _reinit, PinName _bank_1, PinName _bank_2,
-        PinName _bank_3, PinName _edm_ossd_34);
+        PinName _bank_3, PinName _bank_4 );
 
         ~SZ_04M();
 
@@ -25,17 +28,21 @@ class SZ_04M{
         //Set all outputs LSB: entry 1      MSB: Entry 6
         void setOutputs( unsigned char val );
         unsigned char readInputs();
-        void releaseInterlock();                //set output to release interlock
+        void releaseInterlock();                //set output to release interlockgit c
         void nextBank();
         void selectBank(unsigned char bank);    //Between 1 ~ 4;
         unsigned char getLastStatus();          //return last sensor status
         bool isDetecting();                     //TRUE if there is something on protection zone, FALSE otherwise
         bool isReadyToUnlock();                 //TRUE if is ready, FALSE otherwise
         bool checkInternalError();              //check internal errors and try solution, return TRUE if it achieve a solution, FALSE otherwise
+        unsigned char activatedBank();          //check which bank is active 0 if none
+        bool isErrorOn();                       //check if SZ_04M is on error
+        bool isOperational();
 
     private:
 
         Timeout toff;
+        Timeout interval;
 
         DigitalIn ossd1;
         DigitalIn ossd2;
@@ -55,6 +62,8 @@ class SZ_04M{
         unsigned char lastStatus; //last status read by AUX 2 (page 2.41)
         unsigned char incomingStatus;
         bool onInfo; //shows if AUX 1 is ON (false is ON true is OFF)
+        bool detecting;
+        bool releasing; //true if releaseInterlock proces started
 
         void startOnAux1();
         void endOnAux1();
@@ -62,6 +71,7 @@ class SZ_04M{
         void countEdgeOnAux2();
 
         void timeout_isr_();
+        void interval_isr(); 
 
         //error checking methods
         unsigned char totalActiveBanks();
@@ -82,11 +92,11 @@ SZ_04M::SZ_04M (PinName _ossd1, PinName _ossd2, PinName _aux1, PinName _aux2,
 SZ_04M::~SZ_04M(){}
 
 void SZ_04M::init(){
-    reinit = 0;
-    bank_1 = 1;
-    bank_2 = 0;
-    bank_3 = 0;
-    bank_4 = 0;
+    reinit = SZOFF;
+    bank_1 = SZON;
+    bank_2 = SZOFF;
+    bank_3 = SZOFF;
+    bank_4 = SZOFF;
 
     ossd1.mode( PullUp );
     ossd2.mode( PullUp );
@@ -101,6 +111,9 @@ void SZ_04M::init(){
     aux1.fall( callback( this, &SZ_04M::startOnAux1 ) );
 
     aux2.fall( callback( this, &SZ_04M::countEdgeOnAux2 ) );
+
+    releasing = false;
+    reinit = SZOFF;
 };
 
 void SZ_04M::setOutputs( unsigned char val ){
@@ -123,7 +136,7 @@ unsigned char SZ_04M::readInputs(){
     //| AUX6 | AUX5 | AUX4 | AUX3 | AUX2 | AUX1 | OSSD1 | OSSD2 |
     unsigned char val = 0;
 
-    //add and shift
+    //    add      and     shift
     val += !( aux6 ); val = val << 1;
     val += !( aux5 ); val = val << 1;
     val += !( aux4 ); val = val << 1;
@@ -138,8 +151,12 @@ unsigned char SZ_04M::readInputs(){
 }
 
 void SZ_04M::releaseInterlock(){
-    reinit = 1;
-    toff.attach( callback(this, &SZ_04M::timeout_isr_ ), .100);
+    if( !releasing )
+    {
+        reinit = SZON;
+        toff.attach( callback(this, &SZ_04M::timeout_isr_ ), .100);
+        releasing = true;
+    }    
 };
 
 void SZ_04M::nextBank(){
@@ -149,30 +166,30 @@ void SZ_04M::nextBank(){
     switch ( val )
     {
         case 0x01:
-            bank_1 = 0;
-            bank_2 = 1;
+            bank_1 = SZOFF;
+            bank_2 = SZON;
             break;
         
         case 0x02:
-            bank_2 = 0;
-            bank_3 = 1;
+            bank_2 = SZOFF;
+            bank_3 = SZON;
             break;
         
         case 0x04:
-            bank_3 = 0;
-            bank_4 = 1;
+            bank_3 = SZOFF;
+            bank_4 = SZOFF;
             break;
         
         case 0x08:   //backs to 1
-            bank_4 = 0;
-            bank_1 = 1;
+            bank_4 = SZOFF;
+            bank_1 = SZON;
             break;
 
         default:
-            bank_1 = 1;
-            bank_2 = 0;
-            bank_3 = 0;
-            bank_4 = 0;
+            bank_1 = SZON;
+            bank_2 = SZOFF;
+            bank_3 = SZOFF;
+            bank_4 = SZOFF;
             break;
     }
 };
@@ -181,38 +198,38 @@ void SZ_04M::selectBank( unsigned char bank ){
     switch (bank)
     {
         case 1:
-            bank_1 = 1;
-            bank_2 = 0;
-            bank_3 = 0;
-            bank_4 = 0;
+            bank_1 = SZON;
+            bank_2 = SZOFF;
+            bank_3 = SZOFF;
+            bank_4 = SZOFF;
             break;
         
         case 2:
-            bank_1 = 0;
-            bank_2 = 1;
-            bank_3 = 0;
-            bank_4 = 0;
+            bank_1 = SZOFF;
+            bank_2 = SZON;
+            bank_3 = SZOFF;
+            bank_4 = SZOFF;
             break;
         
         case 3:
-            bank_1 = 0;
-            bank_2 = 0;
-            bank_3 = 1;
-            bank_4 = 0;
+            bank_1 = SZOFF;
+            bank_2 = SZOFF;
+            bank_3 = SZON;
+            bank_4 = SZOFF;
             break;
 
         case 4:
-            bank_1 = 0;
-            bank_2 = 0;
-            bank_3 = 0;
-            bank_4 = 1;
+            bank_1 = SZOFF;
+            bank_2 = SZOFF;
+            bank_3 = SZOFF;
+            bank_4 = SZON;
             break;
     
         default:
-            bank_1 = 1;
-            bank_2 = 0;
-            bank_3 = 0;
-            bank_4 = 0;
+            bank_1 = SZON;
+            bank_2 = SZOFF;
+            bank_3 = SZOFF;
+            bank_4 = SZOFF;
             break;
     }
 };
@@ -236,18 +253,22 @@ unsigned char SZ_04M::getLastStatus(){
 };
 
 void SZ_04M::timeout_isr_(){
-    reinit = 0;
+    reinit = SZOFF;
+    interval.attach( callback( this, &SZ_04M::interval_isr), .500);
     toff.detach();
 };
 
+void SZ_04M::interval_isr(){
+    releasing = false;
+    interval.detach();
+};
+
 bool SZ_04M::isDetecting(){
-    bool val = aux5;
-    return val;
+    return ( !aux5.read() == SZON ) ? true : false;
 };
 
 bool SZ_04M::isReadyToUnlock(){
-    bool val = !( aux6 );
-    return val;
+    return ( aux6.read() == SZON ) ? true : false;
 };
 
 bool SZ_04M::checkInternalError(){
@@ -258,10 +279,10 @@ bool SZ_04M::checkInternalError(){
     {
         case 15:
             if ( totalActiveBanks() > 1 ){
-                selectBank( 3 );
+                selectBank( 2 );
                 releaseInterlock();
             }
-            selectBank( 3 );
+            selectBank( 2 );
             val = true;
             break;
 
@@ -281,5 +302,28 @@ bool SZ_04M::checkInternalError(){
 }
 
 unsigned char SZ_04M::totalActiveBanks(){
-    return (bank_1 + bank_2 + bank_3 + bank_4);
+    unsigned char total = 0;
+
+    if( bank_1 == SZON ) total++;
+    if( bank_2 == SZON ) total++;
+    if( bank_3 == SZON ) total++;
+    if( bank_4 == SZON ) total++;
+
+    return total;
+}
+
+unsigned char SZ_04M::activatedBank(){
+    if( bank_1 == SZON) return 1;
+    else if( bank_2 == SZON ) return 2;
+    else if( bank_3 == SZON ) return 3;
+    else if( bank_4 == SZON ) return 4;
+    else return 0;
+}
+
+bool SZ_04M::isErrorOn(){
+    return ( aux3.read() == SZOFF ) ? true : false;
+}
+
+bool SZ_04M::isOperational(){
+    return ( ossd1.read() == SZON ) ? true : false;
 }
