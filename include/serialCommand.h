@@ -24,7 +24,6 @@ void initCmd(){
     pc.printf("*  Project: Automatic Guided Vehicle           *\n");
     pc.printf("*  Module: Keyence Laser Curtain SZ-04M        *\n");
     pc.printf("*  Version: 0.2                                *\n");
-    pc.printf("*  Instituto Centro de Tecnologia em Software  *\n");
     pc.printf("************************************************\n");
 }
 void helpCmd(){
@@ -123,4 +122,5 @@ void initLineCommand(){
     initCmd();
     line.printLine();
     pc.attach(SerialCall);
+
 }
